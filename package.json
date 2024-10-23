@@ -1,0 +1,24 @@
+{
+  "name": "imaplistener",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "imap": "^0.8.19",
+    "mailparser": "^3.7.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/imap": "^0.8.40",
+    "@types/mailparser": "^3.4.5"
+  }
+}
