@@ -10,7 +10,7 @@ const emailConfig = {
   password: process.env.APP_PASSWORD,
   host: 'imap.gmail.com',
   port: 993,
-  tls: true,
+  tls: false,
   tlsOptions: {
     rejectUnauthorized: false, // Default behavior
   },
@@ -81,7 +81,7 @@ export default function startImap() {
 
 async function sendEmailToAIChat(emailBody) {
   try {
-    const response = await fetch('http://localhost:3000/api/email', {
+    const response = await fetch('https://localhost:3000/api/email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

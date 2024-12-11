@@ -14,9 +14,7 @@ const emailConfig = {
   host: 'imap.gmail.com',
   port: 993,
   tls: true,
-  tlsOptions: {
-    rejectUnauthorized: false, // Default behavior
-  },
+  
 };
 
 // Middleware to parse JSON bodies
@@ -40,6 +38,10 @@ app.listen(PORT, () => {
 
 function startImap() {
   const imap = new Imap(emailConfig);
+  console.log('Connecting to IMAP server...');
+  console.log(imap);
+  // Connect to the IMAP server
+  imap.connect();
 
   function openInbox(cb) {
     imap.openBox('INBOX', false, cb);
@@ -97,9 +99,6 @@ function startImap() {
   imap.once('error', (err) => {
     console.log('Connection error: ' + err);
   });
-
-  // Connect to the IMAP server
-  imap.connect();
 
 }
 
