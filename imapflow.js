@@ -1,10 +1,13 @@
 const { ImapFlow } = require('imapflow');
 const simpleParser = require('mailparser').simpleParser;
+const pino = require('pino')();
+pino.level = 'silent';
 
 const client = new ImapFlow({
     host: 'imap.gmail.com',
     port: 993,
     secure: true,
+    logger: false,
     auth: {
         user: 'ami@ed.amdsb.ca',
         pass: 'rkhz bwmi laje bsya'
@@ -21,14 +24,10 @@ const main = async () => {
     await client.mailboxOpen('INBOX');
     console.log('INBOX is selected.');
 
-    let searchResult = await client.search({ seen: false });
-    console.log(`\nFound ${searchResult.length} unread email(s).\n`);
-    await getEmailInfo(searchResult);
-
     // Set up a listener for new emails
     client.on('exists', async () => {
         console.log('New email detected');
-        searchResult = await client.search({ seen: false });
+        let searchResult = await client.search({ seen: false });
         await getEmailInfo(searchResult);
     });
 
@@ -37,45 +36,31 @@ const main = async () => {
         await client.noop();
     }, 5 * 60 * 1000); // Every 5 minutes
 
-    // Select and lock a mailbox. Throws if mailbox does not exist
 
-    /*try {
-        // fetch latest message source
-        // client.mailbox includes information about currently selected mailbox
-        // "exists" value is also the largest sequence number available in the mailbox
-        let message = await client.fetchOne(client.mailbox.exists, { source: true });
-        console.log(message.source.toString());
-
-        // list subjects for all messages
-        // uid value is always included in FETCH response, envelope strings are in unicode.
-        for await (let message of client.fetch('1:*', { envelope: true })) {
-            console.log(`${message.uid}: ${message.envelope.subject}`);
-        }
-    } finally {
-        // Make sure lock is released, otherwise next `getMailboxLock()` never returns
-        lock.release();
-    }*/
-
-    // log out and close connection
-    // await client.logout();
 };
 
 main().catch(err => console.error(err));
 
+const emailRegex = /^[^@.]+\.([^@.]+)@ed\.amdsb\.ca$/i;
+
 async function getEmailInfo(searchResult) {
 
     for (let msg of searchResult) {
-        const message = await client.fetchOne('*', { source: true });
+        const message = await client.fetchOne(msg, { source: true });
         let parsed = await simpleParser(message.source);
 
-        console.log(parsed.to.value[0].address);
+        let fromField = parsed.from.text;
+        const fromAddressMatch = fromField.match(/<([^>]+)>/);
+        const fromAddress = fromAddressMatch ? fromAddressMatch[1] : '';
+
+        console.log(fromAddress);
         //console.log("cc: " + parsed.cc.text);
         //console.log("bcc: " + parsed.bcc.text);
         console.log(`Message ID: ${parsed.messageId}`);
         console.log(`Subject: ${parsed.subject}`);
         console.log("From: " + parsed.from.text);
         console.log(`Date: ${parsed.date}`);
-        console.log(`Body: ${parsed.html}...`);
+        console.log(`Body: ${parsed.text}`);
 
         let emailBody = {
             to: parsed.to.text,
@@ -85,18 +70,23 @@ async function getEmailInfo(searchResult) {
             subject: parsed.subject,
             from: parsed.from.text,
             date: parsed.date,
-            body: parsed.html
+            body: parsed.html,
         }
 
-        sendEmailToAIChat(emailBody);
 
-        // mark it seen
-        //message.messageFlagsAdd('SEEN');
+        if (emailRegex.test(fromAddress)){ 
+            console.log("--------------------- MSG:  " + msg + " ---------------------");
+            sendEmailToAIChat(emailBody, msg);
+        } else {
+            console.log("Email not sent to AI chat. Email is not from an AMDSB email address or is not staff.");
+        }
+        
+
     }
 }
 
 
-async function sendEmailToAIChat(emailBody) {
+async function sendEmailToAIChat(emailBody, msgUid) {
     try {
         const response = await fetch('https://localhost:3000/api/email', {
             method: 'POST',
@@ -107,7 +97,16 @@ async function sendEmailToAIChat(emailBody) {
         });
 
         if (response.ok) {
-            console.log("Email sent successfully");
+            console.log(response.message);
+
+            // mark it seen
+        try {
+            await client.messageFlagsAdd(msgUid, ['\\Seen']);
+            console.log(`Message ${msgUid} marked as seen`);
+        } catch (error) {
+            console.error(`Failed to mark message ${msgUid} as seen:`, error);
+        }
+
         } else {
             console.error(`Failed to send email: ${response.statusText}`);
         }
