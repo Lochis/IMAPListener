@@ -17,24 +17,32 @@ const client = new ImapFlow({
 
 
 const main = async () => {
-    // Wait until client connects and authorizes
-    await client.connect();
 
-    // Open the INBOX
-    await client.mailboxOpen('INBOX');
-    console.log('INBOX is selected.');
+    try {
+        // Wait until client connects and authorizes
+        await client.connect();
 
-    // Set up a listener for new emails
-    client.on('exists', async () => {
-        console.log('New email detected');
-        let searchResult = await client.search({ seen: false });
-        await getEmailInfo(searchResult);
-    });
+        // Open the INBOX
+        await client.mailboxOpen('INBOX');
+        console.log('INBOX is selected.');
 
-    // Keep the connection alive
-    setInterval(async () => {
-        await client.noop();
-    }, 5 * 60 * 1000); // Every 5 minutes
+        // Set up a listener for new emails
+        client.on('exists', async () => {
+            console.log('New email detected');
+            let searchResult = await client.search({ seen: false });
+            await getEmailInfo(searchResult);
+        });
+
+        // Handle connection close and attempt to reconnect
+        client.on('close', async () => {
+            console.log('IMAP connection closed. Attempting to reconnect...');
+            setTimeout(connectToImap, 5000); // Reconnect after 5 seconds
+        });
+
+    } catch (err) {
+        console.error('Failed to connect to IMAP server:', err);
+        setTimeout(connectToImap, 5000); // Retry connection after 5 seconds
+    }
 
 
 };
@@ -74,13 +82,13 @@ async function getEmailInfo(searchResult) {
         }
 
 
-        if (emailRegex.test(fromAddress)){ 
+        if (emailRegex.test(fromAddress)) {
             console.log("--------------------- MSG:  " + msg + " ---------------------");
             sendEmailToAIChat(emailBody, msg);
         } else {
             console.log("Email not sent to AI chat. Email is not from an AMDSB email address or is not staff.");
         }
-        
+
 
     }
 }
@@ -100,12 +108,12 @@ async function sendEmailToAIChat(emailBody, msgUid) {
             console.log(response.message);
 
             // mark it seen
-        try {
-            await client.messageFlagsAdd(msgUid, ['\\Seen']);
-            console.log(`Message ${msgUid} marked as seen`);
-        } catch (error) {
-            console.error(`Failed to mark message ${msgUid} as seen:`, error);
-        }
+            try {
+                await client.messageFlagsAdd(msgUid, ['\\Seen']);
+                console.log(`Message ${msgUid} marked as seen`);
+            } catch (error) {
+                console.error(`Failed to mark message ${msgUid} as seen:`, error);
+            }
 
         } else {
             console.error(`Failed to send email: ${response.statusText}`);
