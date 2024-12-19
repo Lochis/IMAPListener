@@ -16,7 +16,7 @@ const client = new ImapFlow({
 
 
 
-const main = async () => {
+async function connectToImap() {
 
     try {
         // Wait until client connects and authorizes
@@ -47,7 +47,7 @@ const main = async () => {
 
 };
 
-main().catch(err => console.error(err));
+connectToImap().catch(err => console.error(err));
 
 const emailRegex = /^[^@.]+\.([^@.]+)@ed\.amdsb\.ca$/i;
 
