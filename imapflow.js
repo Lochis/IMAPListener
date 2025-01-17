@@ -17,35 +17,39 @@ const client = new ImapFlow({
 
 
 async function connectToImap() {
+    while (true) {
+        try {
+            // Wait until client connects and authorizes
+            await client.connect();
 
-    try {
-        // Wait until client connects and authorizes
-        await client.connect();
+            // Open the INBOX
+            await client.mailboxOpen('INBOX');
+            console.log('INBOX is selected.');
 
-        // Open the INBOX
-        await client.mailboxOpen('INBOX');
-        console.log('INBOX is selected.');
+            // Set up a listener for new emails
+            client.on('exists', async () => {
+                console.log('New email detected');
+                let searchResult = await client.search({ seen: false });
+                await getEmailInfo(searchResult);
+            });
 
-        // Set up a listener for new emails
-        client.on('exists', async () => {
-            console.log('New email detected');
-            let searchResult = await client.search({ seen: false });
-            await getEmailInfo(searchResult);
-        });
+            // Handle connection close and attempt to reconnect
+            client.on('close', async () => {
+                console.log('IMAP connection closed. Attempting to reconnect...');
+                client.removeAllListeners(); // Remove all listeners to avoid duplicate events
+                setTimeout(connectToImap, 5000); // Reconnect after 5 seconds
+            });
 
-        // Handle connection close and attempt to reconnect
-        client.on('close', async () => {
-            console.log('IMAP connection closed. Attempting to reconnect...');
-            setTimeout(connectToImap, 5000); // Reconnect after 5 seconds
-        });
+            // Exit the loop if connected successfully
+            break;
 
-    } catch (err) {
-        console.error('Failed to connect to IMAP server:', err);
-        setTimeout(connectToImap, 5000); // Retry connection after 5 seconds
+        } catch (err) {
+            console.error('Failed to connect to IMAP server:', err);
+            console.log('Retrying connection in 5 seconds...');
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Retry connection after 5 seconds
+        }
     }
-
-
-};
+}
 
 connectToImap().catch(err => console.error(err));
 
